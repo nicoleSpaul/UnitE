@@ -18,12 +18,16 @@ export async function POST(req: Request) {
 MedicationStatement, Observation). Return ONLY JSON in the form
 {"mappings":[{"column":string,"fhirPath":string,"confidence":number}]}.
 Use null for fhirPath if a column has no good match.
+fhirPath must be exactly one of: Patient.name.text, Patient.birthDate,
+Patient.gender, Patient.identifier.value, Condition.code.text,
+MedicationStatement.medicationCodeableConcept.text, Observation.code.text,
+Observation.valueString, or null.
 Headers: ${JSON.stringify(parsed.data.headers)}
 Sample rows: ${JSON.stringify(parsed.data.sampleRows)}`;
 
     try {
         const result = await ai.models.generateContent({
-            model: "gemini-3.8-flash", //newest standard flash model
+            model: "gemini-3.5-flash-lite", //newest standard flash model
             contents: prompt,
             config: { responseMimeType: "application/json" },
         });
