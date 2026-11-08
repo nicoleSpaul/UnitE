@@ -2,10 +2,10 @@
 import { useState, type MouseEvent, type ReactNode } from "react";
 import Image from "next/image";
 import LogoIcon from "../../public/uniteemricon.png";
- 
+
 type SubItem = {
-    label: string;
-    href: string;
+  label: string;
+  href: string;
 }
 
 type NavItem = {
@@ -28,50 +28,49 @@ const iconProps = {
 };
 
 const items: NavItem[] = [
-    {
-        label: "Home",
-        href: "/pages/home",
-        icon: ""
-    },
-    {
-        label: "Dashboard",
-        href: "/pages/dashboard",
-        icon: ""
-    },
-    {
-        label: "Conversion",
-        icon: (
-            <svg {...iconProps}>
-                <path d="M8 3 4 7l4 4" />
-                <path d="M4 7h16" />
-                <path d="m16 21 4-4-4-4" />
-                <path d="M20 17H4" />
-            </svg>
-        ),
-        children: [
-            { label: "File to FHIR", href: "/pages/conversion"},
-            { label: "FHIR to File", href: ""},
-            { label: "Image to FHIR", href: "/pages/input/image-conversion"},
-            { label: "FHIR to Image", href: "/pages/input/image-conversion-to"},
-            { label: "Speech", href: "/pages/input/speech-conversion"},
-        ],
-    },
-    {
-        label: "Output",
-        icon: (
-            <svg {...iconProps}>
-                <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-            </svg>
-        ),
-        children: [
-            { label: "Text", href: "/pages/output/text-output"},
-            { label: "Audio", href: "/pages/output/audio-output"},
-        ]
-    },
+  {
+    label: "Home",
+    href: "/pages/home",
+    icon: ""
+  },
+  {
+    label: "Dashboard",
+    href: "/pages/dashboard",
+    icon: ""
+  },
+  {
+    label: "Conversion",
+    icon: (
+      <svg {...iconProps}>
+        <path d="M8 3 4 7l4 4" />
+        <path d="M4 7h16" />
+        <path d="m16 21 4-4-4-4" />
+        <path d="M20 17H4" />
+      </svg>
+    ),
+    children: [
+      { label: "File to File", href: "/pages/conversion" },
+      { label: "Image to FHIR", href: "/pages/input/image-conversion" },
+      { label: "FHIR to Image", href: "/pages/input/image-conversion-to" },
+      { label: "Speech", href: "/pages/input/speech-conversion" },
+    ],
+  },
+  {
+    label: "Output",
+    icon: (
+      <svg {...iconProps}>
+        <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+      </svg>
+    ),
+    children: [
+      { label: "Text", href: "/pages/output/text-output" },
+      { label: "Audio", href: "/pages/output/audio-output" },
+    ]
+  },
 ]
 
-const hoverFx = 
-"group relative border-b-2 border-transparent transition-colors duration-150 hover:border-yellow-400 focus-visible:border-yellow-400 focus-visible:text-blue-950";
+const hoverFx =
+  "group relative border-b-2 border-transparent transition-colors duration-150 hover:border-yellow-400 focus-visible:border-yellow-400 focus-visible:text-blue-950";
 
 // Four-pointed star shown on hover.
 function Star({ position = "right-3" }: { position?: string }) {
@@ -91,9 +90,8 @@ function Chevron({ open }: { open: boolean }) {
   return (
     <svg
       {...iconProps}
-      className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${
-        open ? "rotate-90" : ""
-      }`}
+      className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-90" : ""
+        }`}
     >
       <path d="m9 6 6 6-6 6" />
     </svg>
@@ -109,7 +107,7 @@ export default function SideNav({
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [active, setActive] = useState(activeHref);
- 
+
   // If open page is in subsection, open section
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -118,7 +116,7 @@ export default function SideNav({
         .map((i) => [i.label, true])
     )
   );
- 
+
   // Route to given href for each link
   const go = (e: MouseEvent<HTMLAnchorElement>, href: string) => {
     if (onNavigate) {
@@ -127,7 +125,7 @@ export default function SideNav({
     }
     setActive(href);
   };
- 
+
   // Toggle sections: collapse if another is clicked, expand if clicked
   const toggleSection = (label: string) => {
     if (collapsed) {
@@ -137,13 +135,12 @@ export default function SideNav({
       setOpen((o) => ({ ...o, [label]: !o[label] }));
     }
   };
- 
+
   return (
     <nav
       aria-label="Main"
-      className={`sticky top-0 h-screen shrink-0 flex flex-col border-r border-blue-900 bg-blue-950 text-blue-100 transition-[width] duration-200 motion-reduce:transition-none ${
-        collapsed ? "w-16" : "w-56"
-      }`}
+      className={`sticky top-0 h-screen shrink-0 flex flex-col border-r border-blue-900 bg-blue-950 text-blue-100 transition-[width] duration-200 motion-reduce:transition-none ${collapsed ? "w-16" : "w-56"
+        }`}
     >
 
       <ul className="flex-1 space-y-1 overflow-y-auto p-2">
@@ -169,9 +166,8 @@ export default function SideNav({
                   title={collapsed ? item.label : undefined}
                   aria-current={isActive ? "page" : undefined}
                   onClick={(e) => go(e, item.href!)}
-                  className={`${hoverFx} flex items-center gap-3 px-3 py-2 text-sm font-medium outline-none ${
-                    isActive ? "bg-blue-800 text-white" : ""
-                  }`}
+                  className={`${hoverFx} flex items-center gap-3 px-3 py-2 text-sm font-medium outline-none ${isActive ? "bg-blue-800 text-white" : ""
+                    }`}
                 >
                   {item.icon}
                   {!collapsed && <span className="truncate">{item.label}</span>}
@@ -180,11 +176,11 @@ export default function SideNav({
               </li>
             );
           }
- 
+
           const isOpen = !!open[item.label] && !collapsed;
           const hasActiveChild = item.children.some((c) => c.href === active);
           const panelId = `subnav-${item.label.toLowerCase().replace(/\s+/g, "-")}`;
- 
+
           return (
             <li key={item.label}>
               <button
@@ -193,21 +189,19 @@ export default function SideNav({
                 aria-expanded={isOpen}
                 aria-controls={panelId}
                 title={collapsed ? item.label : undefined}
-                className={`${hoverFx} flex w-full items-center gap-3 px-3 py-2 text-sm font-medium outline-none ${
-                  hasActiveChild && !isOpen ? "bg-blue-800 text-white" : ""
-                }`}
+                className={`${hoverFx} flex w-full items-center gap-3 px-3 py-2 text-sm font-medium outline-none ${hasActiveChild && !isOpen ? "bg-blue-800 text-white" : ""
+                  }`}
               >
                 {item.icon}
                 {!collapsed && <span className="truncate">{item.label}</span>}
                 {!collapsed && <Star position="right-9" />}
                 {!collapsed && <Chevron open={isOpen} />}
               </button>
- 
+
               <div
                 id={panelId}
-                className={`grid transition-[grid-template-rows,visibility] duration-200 motion-reduce:transition-none ${
-                  isOpen ? "visible grid-rows-[1fr]" : "invisible grid-rows-[0fr]"
-                }`}
+                className={`grid transition-[grid-template-rows,visibility] duration-200 motion-reduce:transition-none ${isOpen ? "visible grid-rows-[1fr]" : "invisible grid-rows-[0fr]"
+                  }`}
               >
                 <div className="min-h-0 overflow-hidden">
                   <ul className="space-y-1 py-1">
@@ -245,9 +239,8 @@ export default function SideNav({
         >
           <svg
             {...iconProps}
-            className={`h-5 w-5 shrink-0 transition-transform ${
-              collapsed ? "rotate-180" : ""
-            }`}
+            className={`h-5 w-5 shrink-0 transition-transform ${collapsed ? "rotate-180" : ""
+              }`}
           >
             <path d="m15 6-6 6 6 6" />
           </svg>

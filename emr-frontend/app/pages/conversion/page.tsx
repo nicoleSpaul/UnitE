@@ -554,7 +554,7 @@ export default function ConversionPage() {
 
                     <button
                         onClick={() => setResult(csvToFhir(rows, mapping))}
-                        className="rounded bg-black px-4 py-2 text-white"
+                        className="rounded bg-white px-4 py-2 text-white"
                     >
                         Convert
                     </button>
