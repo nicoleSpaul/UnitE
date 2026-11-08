@@ -29,6 +29,11 @@ const iconProps = {
 
 const items: NavItem[] = [
     {
+        label: "Home",
+        href: "/pages/home",
+        icon: ""
+    },
+    {
         label: "Dashboard",
         href: "/pages/dashboard",
         icon: ""
@@ -134,16 +139,23 @@ export default function SideNav({
   return (
     <nav
       aria-label="Main"
-      className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-blue-900 bg-blue-950 text-blue-100 transition-[width] duration-200 motion-reduce:transition-none ${
+      className={`sticky top-0 h-screen shrink-0 flex flex-col border-r border-blue-900 bg-blue-950 text-blue-100 transition-[width] duration-200 motion-reduce:transition-none ${
         collapsed ? "w-16" : "w-56"
       }`}
     >
 
       <ul className="flex-1 space-y-1 overflow-y-auto p-2">
 
-        <div className="flex flex-row pb-2 m-2">
-            <Image src={LogoIcon} alt="Icon" className="w-8 h-6"/>
-        </div>
+        <li className="pb-2 m-2">
+          <a
+            href="/pages/home"
+            aria-label="Go to home page"
+            onClick={(e) => go(e, "/pages/home")}
+            className="inline-flex outline-none focus-visible:ring-2 focus-visible:ring-yellow-400"
+          >
+            <Image src={LogoIcon} alt="Unite EMR logo" className="w-8 h-6" />
+          </a>
+        </li>
 
         {items.map((item) => {
           if (!item.children) {
