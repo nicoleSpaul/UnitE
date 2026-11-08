@@ -1,6 +1,9 @@
-
 import { GoogleGenAI } from "@google/genai";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { gzipSync } from "node:zlib";
 import { z } from "zod";
+
+export const maxDuration = 60;
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -8,206 +11,328 @@ const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_FHIR_BYTES = 2 * 1024 * 1024;
 
 const FHIR_MIME_TYPES = [
-    "application/fhir+json",
-    "application/json",
-    "application/fhir+xml",
-    "application/xml",
-    "text/xml",
+  "application/fhir+json",
+  "application/json",
+  "application/fhir+xml",
+  "application/xml",
+  "text/xml",
 ];
 
 const isFhirJson = (f: File) =>
-    f.name.toLowerCase().endsWith(".json") || f.type.includes("json");
- 
+  f.name.toLowerCase().endsWith(".json") || f.type.includes("json");
+
 const Body = z.object({
-    pdf: z
-        .instanceof(File, { message: "No PDF was sent" })
-        .refine((f) => f.type === "application/pdf", {
-            message: "The document must be a PDF",
-        })
-        .refine((f) => f.size <= MAX_PDF_BYTES, { message: "The PDF is over 10 MB" }),
-    fhir: z
-        .instanceof(File, { message: "No FHIR file was sent" })
-        .refine(
-            (f) =>
-                FHIR_MIME_TYPES.includes(f.type) ||
-                // browsers often send an empty type for .json / .xml files
-                /\.(json|xml)$/i.test(f.name),
-            { message: "The FHIR file must be JSON or XML" }
-        )
-        .refine((f) => f.size <= MAX_FHIR_BYTES, { message: "The FHIR file is over 2 MB" }),
+  pdf: z
+    .instanceof(File, { message: "No PDF was sent" })
+    .refine((f) => f.type === "application/pdf", {
+      message: "The document must be a PDF",
+    })
+    .refine((f) => f.size <= MAX_PDF_BYTES, { message: "The PDF is over 10 MB" }),
+  fhir: z
+    .instanceof(File, { message: "No FHIR file was sent" })
+    .refine(
+      (f) =>
+        FHIR_MIME_TYPES.includes(f.type) ||
+        // browsers often send an empty type for .json / .xml files
+        /\.(json|xml)$/i.test(f.name),
+      { message: "The FHIR file must be JSON or XML" }
+    )
+    .refine((f) => f.size <= MAX_FHIR_BYTES, { message: "The FHIR file is over 2 MB" }),
 });
 
+// What we expect Gemini to return
+const FieldSchema = z.object({
+  page: z.number().int().min(1),
+  type: z.string().default("text"), // text | text_area | checkbox | radio | date | comb | signature ...
+  label: z.string().default(""),
+  bbox: z.array(z.number()).length(4), // [x_min, y_min, x_max, y_max], 0-1000, top-left origin
+  fill: z.string().nullable().default(null),
+  chars: z.array(z.string()).nullish(), // comb fields
+  segments: z.array(z.string()).nullish(), // segmented dates
+  font_size: z.number().nullish(),
+  source_paths: z.array(z.string()).default([]),
+  match_status: z.string().default("matched"),
+  confidence: z.number().nullish(),
+  notes: z.string().nullish(),
+});
+const ModelOutput = z.object({ fields: z.array(FieldSchema) });
+type Field = z.infer<typeof FieldSchema>;
+
 function checkFhir(text: string, asJson: boolean): string | null {
-    if (asJson) {
-        try {
-            const obj = JSON.parse(text);
-            if (typeof obj?.resourceType !== "string") {
-                return 'The FHIR JSON has no "resourceType"';
-            }
-        } catch {
-            return "The FHIR file is not valid JSON";
-        }
-        return null;
-    }
-    // XML: root element must be in the FHIR namespace
-    if (!/<[A-Za-z]+[^>]*xmlns="http:\/\/hl7\.org\/fhir"/.test(text)) {
-        return "The FHIR XML is missing the http://hl7.org/fhir namespace";
+  if (asJson) {
+    try {
+      const obj = JSON.parse(text);
+      if (typeof obj?.resourceType !== "string") {
+        return 'The FHIR JSON has no "resourceType"';
+      }
+    } catch {
+      return "The FHIR file is not valid JSON";
     }
     return null;
+  }
+  // XML: root element must be in the FHIR namespace
+  if (!/<[A-Za-z]+[^>]*xmlns="http:\/\/hl7\.org\/fhir"/.test(text)) {
+    return "The FHIR XML is missing the http://hl7.org/fhir namespace";
+  }
+  return null;
 }
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+// Helvetica (WinAnsi) can't encode everything; replace what it can't.
+const clean = (s: string) => s.replace(/[\r\t]+/g, " ").replace(/[^\n\x20-\x7E\xA0-\xFF]/g, "?");
+
+function fitSize(font: PDFFont, text: string, maxW: number, startSize: number) {
+  let size = startSize;
+  while (size > 6 && font.widthOfTextAtSize(text, size) > maxW) size -= 0.5;
+  return size;
+}
+
+function truncateToWidth(font: PDFFont, text: string, maxW: number, size: number) {
+  let t = text;
+  while (t.length > 1 && font.widthOfTextAtSize(t, size) > maxW) t = t.slice(0, -1);
+  return t;
+}
+
+function wrapLines(font: PDFFont, text: string, maxW: number, size: number) {
+  const lines: string[] = [];
+  for (const para of text.split("\n")) {
+    let line = "";
+    for (const word of para.split(/\s+/).filter(Boolean)) {
+      const next = line ? `${line} ${word}` : word;
+      if (font.widthOfTextAtSize(next, size) <= maxW) {
+        line = next;
+      } else {
+        if (line) lines.push(line);
+        line = word;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+function drawField(page: PDFPage, font: PDFFont, f: Field) {
+  const { width: pw, height: ph } = page.getSize();
+  const [a, b, c, d] = f.bbox.map((n) => clamp(n, 0, 1000));
+
+  const x0 = (Math.min(a, c) / 1000) * pw;
+  const x1 = (Math.max(a, c) / 1000) * pw;
+  // convert top-left origin (0-1000) to PDF bottom-left origin (points)
+  const yTop = ph - (Math.min(b, d) / 1000) * ph;
+  const yBot = ph - (Math.max(b, d) / 1000) * ph;
+  const w = x1 - x0;
+  const h = yTop - yBot;
+  if (w <= 0 || h <= 0) return;
+
+  const color = rgb(0, 0, 0);
+  const preferred = clamp(f.font_size ?? 10, 6, 12);
+
+  // Character-comb: one character per cell
+  if (f.chars?.length) {
+    const cellW = w / f.chars.length;
+    const size = clamp(Math.min(preferred, h * 0.85), 6, 12);
+    f.chars.forEach((ch, i) => {
+      const t = clean(ch ?? "");
+      if (!t) return;
+      const tw = font.widthOfTextAtSize(t, size);
+      page.drawText(t, {
+        x: x0 + i * cellW + (cellW - tw) / 2,
+        y: yBot + (h - size) / 2 + size * 0.2,
+        size,
+        font,
+        color,
+      });
+    });
+    return;
+  }
+
+  // Segmented date: one part per equal-width segment
+  if (f.segments?.length) {
+    const segW = w / f.segments.length;
+    f.segments.forEach((seg, i) => {
+      const t = clean(seg ?? "");
+      if (!t) return;
+      const size = fitSize(font, t, segW - 2, clamp(Math.min(preferred, h * 0.85), 6, 12));
+      const tw = font.widthOfTextAtSize(t, size);
+      page.drawText(t, {
+        x: x0 + i * segW + (segW - tw) / 2,
+        y: yBot + (h - size) / 2 + size * 0.2,
+        size,
+        font,
+        color,
+      });
+    });
+    return;
+  }
+
+  if (!f.fill) return;
+  const text = clean(f.fill);
+  if (!text.trim()) return;
+
+  // Checkbox / radio: centered mark
+  if (f.type === "checkbox" || f.type === "radio") {
+    const size = clamp(Math.min(w, h) * 0.9, 6, 14);
+    const tw = font.widthOfTextAtSize(text, size);
+    page.drawText(text, {
+      x: x0 + (w - tw) / 2,
+      y: yBot + (h - size) / 2 + size * 0.2,
+      size,
+      font,
+      color,
+    });
+    return;
+  }
+
+  // Multi-line free text
+  const multiLine = f.type === "text_area" || text.includes("\n") || h > preferred * 2.6;
+  if (multiLine) {
+    const size = preferred;
+    const lineH = size * 1.2;
+    const maxLines = Math.max(1, Math.floor(h / lineH));
+    const lines = wrapLines(font, text, w - 2, size).slice(0, maxLines);
+    lines.forEach((line, i) => {
+      page.drawText(line, { x: x0 + 1, y: yTop - size - i * lineH, size, font, color });
+    });
+    return;
+  }
+
+  // Single line
+  const size = fitSize(font, text, w - 2, clamp(Math.min(preferred, h * 0.9), 6, 12));
+  const shown = truncateToWidth(font, text, w - 2, size);
+  page.drawText(shown, {
+    x: x0 + 1,
+    y: yBot + (h - size) / 2 + size * 0.2,
+    size,
+    font,
+    color,
+  });
+}
+
+const BASE_PROMPT = `
+    You are given a PDF form and an HL7 FHIR (JSON). 
+    
+    Create a PDF with the same format and use the information from the JSON 
+    and match where it should go using the headers or context provided by the page. 
+
+    Ensure no text overlays with any lines. If a section requires information not included in the JSON fill it out to the best
+    of your ability or leave it blank completely. 
+
+    Additionally to the PDF return a JSON matching this schema:
+    {
+    "fields": [
+        {
+        "page": 1,
+        "type": "text" | "text_area" | "checkbox" | "radio" | "date" | "comb" | "signature",
+        "label": "the printed label of the field",
+        "bbox": [x_min, y_min, x_max, y_max],
+        "fill": "text to print, or null",
+        "chars": ["A","B"],
+        "segments": ["MM","DD","YYYY"],
+        "font_size": 10,
+        "source_paths": ["Patient.birthDate"],
+        "match_status": "matched" | "no_data" | "requires_human" | "uncertain",
+        "confidence": 0.0-1.0,
+        "notes": "optional"
+        }
+    ]
+    "excluded": []
+    }
+    denoting every choice you made.
+`;
+
+const PROMPT = BASE_PROMPT;
 
 export async function POST(req: Request) {
-    let form: FormData;
-    try {
-        form = await req.formData();
-    } catch {
-        return Response.json({ error: "Bad request" }, { status: 400 });
-    }
- 
-    const parsed = Body.safeParse({
-        pdf: form.get("pdf"),
-        fhir: form.get("fhir"),
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch {
+    return Response.json({ error: "Bad request" }, { status: 400 });
+  }
+
+  const parsed = Body.safeParse({
+    pdf: form.get("pdf"),
+    fhir: form.get("fhir"),
+  });
+  if (!parsed.success) {
+    return Response.json(
+      { error: parsed.error.issues[0]?.message ?? "Bad request" },
+      { status: 400 }
+    );
+  }
+
+  const { pdf, fhir } = parsed.data;
+
+  const fhirText = await fhir.text();
+  const fhirIsJson = isFhirJson(fhir);
+  const fhirError = checkFhir(fhirText, fhirIsJson);
+  if (fhirError) {
+    return Response.json({ error: fhirError }, { status: 400 });
+  }
+
+  const pdfBytes = Buffer.from(await pdf.arrayBuffer());
+
+  // 1) Ask Gemini for the field mapping
+  let mapping: z.infer<typeof ModelOutput>;
+  try {
+    const result = await ai.models.generateContent({
+      model: "gemini-3.5-flash-lite", //newest standard flash model
+      contents: [
+        { inlineData: { mimeType: "application/pdf", data: pdfBytes.toString("base64") } },
+        { text: `FHIR R4 DATA (${fhirIsJson ? "JSON" : "XML"}):\n${fhirText}` },
+        { text: PROMPT },
+      ],
+      config: { responseMimeType: "application/json" },
     });
-    if (!parsed.success) {
-        return Response.json(
-            { error: parsed.error.issues[0]?.message ?? "Bad request" },
-            { status: 400 }
-        );
+
+    const raw = (result.text ?? "")
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "")
+      .trim();
+    const out = ModelOutput.safeParse(JSON.parse(raw));
+    if (!out.success) throw new Error("The model returned an unexpected format");
+    mapping = out.data;
+  } catch (e) {
+    console.error("Gemini error:", e);
+    return Response.json(
+      { error: e instanceof Error ? e.message : "Gemini request failed" },
+      { status: 502 }
+    );
+  }
+
+  // 2) Draw the values onto the PDF
+  let filled: Uint8Array;
+  try {
+    const doc = await PDFDocument.load(pdfBytes);
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const pages = doc.getPages();
+
+    for (const f of mapping.fields) {
+      const page = pages[f.page - 1];
+      if (!page) continue;
+      drawField(page, font, f);
     }
- 
-    const { pdf, fhir } = parsed.data;
- 
-    const fhirText = await fhir.text();
-    const fhirIsJson = isFhirJson(fhir);
-    const fhirError = checkFhir(fhirText, fhirIsJson);
-    if (fhirError) {
-        return Response.json({ error: fhirError }, { status: 400 });
-    }
+    filled = await doc.save();
+  } catch (e) {
+    console.error("PDF error:", e);
+    return Response.json(
+      { error: "Couldn't write to that PDF. It may be encrypted or damaged." },
+      { status: 422 }
+    );
+  }
 
-    const prompt = `ou are a medical-form completion system. You will receive:
-    (1) a PDF form, and
-    (2) an HL7 FHIR R4 file (JSON; a single resource or a Bundle).
-    Your job: find every writable section on the PDF, match each one to the
-    correct information in the FHIR data, and specify the exact printed text to
-    place in each bounding box. Do not fabricate data.
-    
-    PART 1: DETECT WRITABLE SECTIONS
-    A writable section is any place a person is expected to write, mark, sign, or
-    select something: fill-in lines or underscores, empty boxes or table cells,
-    checkboxes and radio buttons (the mark target only), signature and initial
-    areas, date fields (including segmented __/__/____), character-comb fields
-    (treat the whole row as one field), and free-text areas.
-    Exclude static labels, headings, instructions, decorative lines, logos,
-    headers, footers, and page numbers.
+  // 3) Return the PDF; the mapping travels in a gzipped, base64 header
+  const mappingHeader = gzipSync(Buffer.from(JSON.stringify(mapping))).toString("base64");
 
-    Coordinates: process every page (numbered from 1). Use a 0-1000 normalized
-    scale, origin TOP-LEFT: [x_min, y_min, x_max, y_max]. The box must tightly
-    cover the writing area, not the label. For a blank line, include the line plus
-    about one text height above it. For a checkbox, box the square only. Do not
-    merge separate fields or split one field.
-
-    PART 2: INDEX THE FHIR DATA
-    Before matching, silently build an index of the FHIR data:
-    - List every resource (Patient, Practitioner, Organization, Coverage,
-    Condition, AllergyIntolerance, MedicationRequest, Observation, Encounter,
-    Procedure, Immunization, etc.) with its id.
-    - For each, note the usable elements with their FHIRPath
-    (e.g., Patient.name[0].given, Patient.birthDate, Patient.telecom[system=phone]).
-    - Resolve references (e.g., Coverage.payor -> Organization) using Bundle
-    entries by fullUrl or resource id.
-
-    PART 3: MATCH FIELDS TO FHIR ELEMENTS
-    For each detected field:
-    1. Read its label, section heading, and nearby text to determine what is being
-    asked (e.g., "DOB", "Insurance ID", "Current medications", "Allergies").
-    2. Select the FHIR element(s) that answer it. Record the FHIRPath(s) used in
-    "source_paths".
-    3. When several candidates exist, choose by these rules:
-    - Names: prefer use="official", then "usual"; ignore expired periods.
-    - Addresses/telecom: prefer use="home" unless the form says work/mailing;
-        prefer entries with no period.end or the latest period.
-    - Identifiers: choose by type/system matching the label (MRN, SSN,
-        Member ID, NPI, etc.).
-    - Observations/Conditions/Medications: use only status active/final/
-        completed as appropriate; prefer the most recent by effective/onset/
-        authoredOn date. Exclude entered-in-error and inactive items unless the
-        form asks for history.
-    - Multiple items for one free-text area (e.g., medication list): join with
-        "; " or newlines, whichever fits the box, and say so in "notes" if
-        truncated.
-    4. If the form asks for something absent from the FHIR data, leave the field
-    empty (fill = null) and set match_status = "no_data". Never guess, infer
-    clinical facts, or reuse a value for an unrelated field.
-    5. If the field is a signature, or asks for patient attestation/consent, leave
-    it empty with match_status = "requires_human".
-    6. If the match is plausible but uncertain, fill it only if confidence >= 0.6;
-    otherwise leave it empty with match_status = "uncertain".
-
-    PART 4: FORMAT THE PRINTED TEXT
-    Convert FHIR datatypes to plain printed text, following the form's own
-    conventions where visible:
-    - HumanName: "Family, Given" or "Given Family", whichever the label implies.
-    If separate First / Middle / Last boxes exist, split accordingly.
-    - Address: split into street, city, state, postal code if the form has
-    separate fields; otherwise one line: "line, city, state postalCode".
-    - ContactPoint: phone formatted per form (e.g., (555) 123-4567); email as-is.
-    - date / dateTime / instant: match the form's format (MM/DD/YYYY by default
-    for US forms; follow any format hint such as DD/MM/YYYY). Never include
-    time unless asked.
-    - CodeableConcept / Coding: print Coding.display or CodeableConcept.text; if
-    the form asks for a code (ICD-10, CPT, NDC, RxNorm, LOINC), print the code
-    value.
-    - Quantity: "value unit" (e.g., "72 bpm", "5.4 mmol/L").
-    - Identifier: the value only.
-    - boolean / gender / status fields mapped to checkboxes or radios: see below.
-    - Reference: resolve and print the referenced resource's display name.
-    - Dosage: "drug, dose, route, frequency" in compact form.
-    Use UPPERCASE only if the form's label requests it. Do not add labels or
-    units the form already prints next to the box.
-
-    Special field types:
-    - checkbox / radio: set fill = "X" for the option that matches the data and
-    null for the others in the group. Only mark an option if the data clearly
-    supports it (e.g., Patient.gender = "female" -> mark "Female").
-    Yes/No questions: mark "Yes" or "No" only if the data explicitly supports
-    it; absence of a record is NOT "No".
-    - comb: provide the characters as an array, one per cell, left-aligned
-    unless the form indicates otherwise; truncate to the number of cells and flag
-    truncation in notes.
-    - date with segmented boxes: provide parts separately in "segments".
-    - text_area: wrap into lines that fit.
-
-    Fit: estimate the font size so the text fits the box on one line (or the
-    required number of lines) between 6 and 12 pt. If it cannot fit at 6 pt,
-    abbreviate only where unambiguous, otherwise truncate and note it.
-
-    PART 5: FINAL CHECKS
-    - Every PDF page appears in the output, even with empty fields.
-    - Every filled value traces to a specific FHIR path; nothing is invented.
-    - No bbox covers its label; no field is duplicated.
-    - Prefilled fields are left untouched (fill = null).
-    - Radio groups have at most one option marked.
-    - Dates and phone numbers use consistent formatting across the form.
-    `;
-
-    try {
-        const pdfData = Buffer.from(await pdf.arrayBuffer()).toString("base64");
- 
-        const result = await ai.models.generateContent({
-            model: "gemini-3.5-flash-lite", //newest standard flash model
-            contents: [
-                { inlineData: { mimeType: "application/pdf", data: pdfData } },
-                { text: prompt },
-            ],
-        });
-        return Response.json({ text: result.text ?? "" });
-    } catch (e) {
-        console.error("Gemini error:", e);
-        return Response.json(
-            { error: e instanceof Error ? e.message : "Gemini request failed" },
-            { status: 502 }
-        );
-    }
-
+  return new Response(Buffer.from(filled), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": 'inline; filename="filled.pdf"',
+      "X-Field-Mapping": mappingHeader,
+      "Access-Control-Expose-Headers": "X-Field-Mapping",
+      "Cache-Control": "no-store",
+    },
+  });
 }
-
