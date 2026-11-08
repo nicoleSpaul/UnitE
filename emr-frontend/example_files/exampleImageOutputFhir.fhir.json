@@ -1,0 +1,590 @@
+{
+    "resourceType": "Bundle",
+    "type": "collection",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "patient-a-thompson",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Patient</b></p><p><b>Name</b>: Mr. A. Thompson </p><p><b>Birth Date</b>: 1958-02-14</p><p><b>Identifier</b>: NHS 482 770 5192</p></div>"
+                },
+                "identifier": [
+                    {
+                        "system": "https://fhir.nhs.uk/Id/nhs-number",
+                        "value": "4827705192"
+                    }
+                ],
+                "name": [
+                    {
+                        "use": "official",
+                        "family": "Thompson",
+                        "given": [
+                            "A."
+                        ],
+                        "prefix": [
+                            "Mr."
+                        ]
+                    }
+                ],
+                "gender": "male",
+                "birthDate": "1958-02-14"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Encounter",
+                "id": "encounter-ward-4b",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Encounter</b></p><p><b>Status</b>: finished</p><p><b>Class</b>: inpatient</p><p><b>Period</b>: 2024-03-08</p><p><b>Location</b>: Ward 4B</p></div>"
+                },
+                "status": "finished",
+                "class": {
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                    "code": "IMP",
+                    "display": "inpatient encounter"
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                },
+                "period": {
+                    "start": "2024-03-08"
+                },
+                "location": [
+                    {
+                        "location": {
+                            "display": "Ward 4B"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "condition-aecopd",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Condition</b></p><p><b>Clinical Status</b>: active</p><p><b>Verification Status</b>: confirmed</p><p><b>Code</b>: Acute exacerbation of chronic obstructive pulmonary disease</p><p><b>Subject</b>: <a href=\"Patient/patient-a-thompson\">Patient/patient-a-thompson</a></p></div>"
+                },
+                "clinicalStatus": {
+                    "coding": [
+                        {
+                            "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+                            "code": "active"
+                        }
+                    ]
+                },
+                "verificationStatus": {
+                    "coding": [
+                        {
+                            "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+                            "code": "confirmed"
+                        }
+                    ]
+                },
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "195967001",
+                            "display": "Asthmatic chronic obstructive pulmonary disease (disorder)"
+                        }
+                    ],
+                    "text": "AECOPD, infective exacerbation"
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "condition-copd",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Condition</b></p><p><b>Code</b>: Chronic obstructive pulmonary disease</p></div>"
+                },
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "13645005",
+                            "display": "Chronic obstructive pulmonary disease"
+                        }
+                    ],
+                    "text": "COPD (FEV1 38%)"
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "condition-ihd",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Condition</b></p><p><b>Code</b>: Ischaemic heart disease</p></div>"
+                },
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "414545008",
+                            "display": "Ischemic heart disease"
+                        }
+                    ],
+                    "text": "IHD"
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "condition-htn",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Condition</b></p><p><b>Code</b>: Hypertension</p></div>"
+                },
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "38341003",
+                            "display": "Hypertension"
+                        }
+                    ],
+                    "text": "HTN"
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "condition-t2dm",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Condition</b></p><p><b>Code</b>: Type 2 diabetes mellitus</p></div>"
+                },
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://snomed.info/sct",
+                            "code": "44054006",
+                            "display": "Type 2 diabetes mellitus"
+                        }
+                    ],
+                    "text": "T2DM"
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-resp-rate-12-03",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Observation</b></p><p><b>Status</b>: final</p><p><b>Code</b>: Respiratory rate</p><p><b>Value</b>: 18 /min</p></div>"
+                },
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "vital-signs"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "9279-1",
+                            "display": "Respiratory rate"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                },
+                "effectiveDateTime": "2024-03-12",
+                "valueQuantity": {
+                    "value": 18,
+                    "unit": "/min",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "/min"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-heart-rate-12-03",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Observation</b></p><p><b>Status</b>: final</p><p><b>Code</b>: Heart rate</p><p><b>Value</b>: 86 beats/min</p></div>"
+                },
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "vital-signs"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "8867-4",
+                            "display": "Heart rate"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                },
+                "effectiveDateTime": "2024-03-12",
+                "valueQuantity": {
+                    "value": 86,
+                    "unit": "beats/min",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "/min"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-bp-12-03",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Observation</b></p><p><b>Status</b>: final</p><p><b>Code</b>: Blood pressure</p><p><b>Value</b>: 132/78 mmHg</p></div>"
+                },
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "vital-signs"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "85354-9",
+                            "display": "Blood pressure panel with all children optional"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                },
+                "effectiveDateTime": "2024-03-12",
+                "component": [
+                    {
+                        "code": {
+                            "coding": [
+                                {
+                                    "system": "http://loinc.org",
+                                    "code": "8480-6",
+                                    "display": "Systolic blood pressure"
+                                }
+                            ]
+                        },
+                        "valueQuantity": {
+                            "value": 132,
+                            "unit": "mmHg",
+                            "system": "http://unitsofmeasure.org",
+                            "code": "mm[Hg]"
+                        }
+                    },
+                    {
+                        "code": {
+                            "coding": [
+                                {
+                                    "system": "http://loinc.org",
+                                    "code": "8462-4",
+                                    "display": "Diastolic blood pressure"
+                                }
+                            ]
+                        },
+                        "valueQuantity": {
+                            "value": 78,
+                            "unit": "mmHg",
+                            "system": "http://unitsofmeasure.org",
+                            "code": "mm[Hg]"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-temp-12-03",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Observation</b></p><p><b>Status</b>: final</p><p><b>Code</b>: Body temperature</p><p><b>Value</b>: 36.8 Cel</p></div>"
+                },
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "vital-signs"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "8310-5",
+                            "display": "Body temperature"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                },
+                "effectiveDateTime": "2024-03-12",
+                "valueQuantity": {
+                    "value": 36.8,
+                    "unit": "Cel",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "Cel"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-spo2-12-03",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Observation</b></p><p><b>Status</b>: final</p><p><b>Code</b>: Oxygen saturation</p><p><b>Value</b>: 94 %</p></div>"
+                },
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "vital-signs"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "2708-6",
+                            "display": "Oxygen saturation in Arterial blood"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                },
+                "effectiveDateTime": "2024-03-12",
+                "valueQuantity": {
+                    "value": 94,
+                    "unit": "%",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "%"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-wcc-12-03",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Observation</b></p><p><b>Status</b>: final</p><p><b>Code</b>: Leukocytes</p><p><b>Value</b>: 9.1 10^3/uL</p></div>"
+                },
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "laboratory"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "6690-2",
+                            "display": "Leukocytes [#/volume] in Blood by Automated count"
+                        }
+                    ],
+                    "text": "WCC"
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                },
+                "effectiveDateTime": "2024-03-12",
+                "valueQuantity": {
+                    "value": 9.1,
+                    "unit": "10^3/uL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "10*3/uL"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-crp-12-03",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Observation</b></p><p><b>Status</b>: final</p><p><b>Code</b>: C-reactive protein</p><p><b>Value</b>: 23 mg/L</p></div>"
+                },
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "laboratory"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "1988-5",
+                            "display": "C reactive protein [Mass/volume] in Serum or Plasma"
+                        }
+                    ],
+                    "text": "CRP"
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                },
+                "effectiveDateTime": "2024-03-12",
+                "valueQuantity": {
+                    "value": 23,
+                    "unit": "mg/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mg/L"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-urea-12-03",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Observation</b></p><p><b>Status</b>: final</p><p><b>Code</b>: Urea</p><p><b>Value</b>: 6.2 mmol/L</p></div>"
+                },
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "laboratory"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "3094-0",
+                            "display": "Urea nitrogen [Mass/volume] in Blood"
+                        }
+                    ],
+                    "text": "urea"
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                },
+                "effectiveDateTime": "2024-03-12",
+                "valueQuantity": {
+                    "value": 6.2,
+                    "unit": "mmol/L",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mmol/L"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "obs-egfr-12-03",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative: Observation</b></p><p><b>Status</b>: final</p><p><b>Code</b>: eGFR</p><p><b>Value</b>: 71 mL/min</p></div>"
+                },
+                "status": "final",
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                                "code": "laboratory"
+                            }
+                        ]
+                    }
+                ],
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://loinc.org",
+                            "code": "33914-3",
+                            "display": "Glomerular filtration rate/1.73 sq M.predicted [Volume Rate/Area] in Serum or Plasma by Creatinine-based formula (MDRD)"
+                        }
+                    ],
+                    "text": "eGFR"
+                },
+                "subject": {
+                    "reference": "Patient/patient-a-thompson"
+                },
+                "effectiveDateTime": "2024-03-12",
+                "valueQuantity": {
+                    "value": 71,
+                    "unit": "mL/min",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mL/min/{1.73_m2}"
+                }
+            }
+        }
+    ]
+}
