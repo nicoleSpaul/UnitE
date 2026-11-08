@@ -1,0 +1,15 @@
+{
+    "format": "emr-unifier-templates",
+    "version": 1,
+    "templates": [
+        {
+            "name": "Clinic A export",
+            "mapping": {
+                "pt_name": "Patient.name.text",
+                "dob": "Patient.birthDate",
+                "previous doctors": "__extension__",
+                "room_no": null
+            }
+        }
+    ]
+}

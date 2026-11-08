@@ -1,0 +1,70 @@
+{
+    "resourceType": "Bundle",
+    "type": "collection",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "p1",
+                "identifier": [
+                    {
+                        "value": "A1001"
+                    }
+                ],
+                "name": [
+                    {
+                        "text": "Jane Test",
+                        "family": "Test",
+                        "given": [
+                            "Jane"
+                        ]
+                    }
+                ],
+                "gender": "female",
+                "birthDate": "1970-01-01"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "c1",
+                "subject": {
+                    "reference": "Patient/p1"
+                },
+                "code": {
+                    "text": "E11.9 Type 2 diabetes mellitus"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationStatement",
+                "id": "m1",
+                "status": "active",
+                "subject": {
+                    "reference": "Patient/p1"
+                },
+                "medicationCodeableConcept": {
+                    "text": "Metformin 500 mg"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "id": "o1",
+                "status": "final",
+                "subject": {
+                    "reference": "Patient/p1"
+                },
+                "code": {
+                    "text": "Systolic BP"
+                },
+                "valueQuantity": {
+                    "value": 128,
+                    "unit": "mm[Hg]"
+                }
+            }
+        }
+    ]
+}

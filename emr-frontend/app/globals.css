@@ -5,6 +5,24 @@
   --foreground: #171717;
 }
 
+[data-theme="night"] {
+  --color-background: #ffffff;
+  --color-text: #111827;
+  --color-primary: #3b82f6;
+}
+
+[data-theme="sky"] {
+  --color-background: #ffffff;
+  --color-text: #111827;
+  --color-primary: #3b82f6;
+}
+
+[data-theme="stars"] {
+  --color-background: #ffffff;
+  --color-text: #111827;
+  --color-primary: #3b82f6;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

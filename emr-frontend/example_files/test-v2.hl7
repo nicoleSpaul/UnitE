@@ -1,0 +1,10 @@
+MSH|^~\&|LAB|HOSP|EMR|HOSP|20260101120000||ORU^R01|MSG001|P|2.5
+PID|1||A1001^^^HOSP^MR||Test^Jane^Q||19700101|F
+AL1|1||70618^Penicillin^RXNORM
+DG1|1||E11.9^Type 2 diabetes mellitus^I10
+RXE||860975^Metformin 500 MG^RXNORM
+OBR|1|||24323-8^Comprehensive metabolic panel^LN|||20260101083000
+OBX|1|NM|2345-7^Glucose^LN||182|mg/dL|70-99|H|||F
+OBX|2|NM|8480-6^Systolic BP^LN||128|mm[Hg]|90-120|H|||F
+OBX|3|ST|11029-6^Note^LN||Fasting sample
+PV1|1|O

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ClinicalDocument xmlns="urn:hl7-org:v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <recordTarget>
+    <patientRole>
+      <id root="2.16.840.1.113883.19.5" extension="A1001"/>
+      <patient>
+        <name><given>Jane</given><family>Test</family></name>
+        <administrativeGenderCode code="F" codeSystem="2.16.840.1.113883.5.1"/>
+        <birthTime value="19700101"/>
+      </patient>
+    </patientRole>
+  </recordTarget>
+  <component><structuredBody>
+    <component><section>
+      <code code="11450-4" codeSystem="2.16.840.1.113883.6.1"/>
+      <title>Problems</title>
+      <entry><act classCode="ACT" moodCode="EVN">
+        <entryRelationship typeCode="SUBJ"><observation classCode="OBS" moodCode="EVN">
+          <effectiveTime><low value="20200315"/></effectiveTime>
+          <value xsi:type="CD" code="E11.9" codeSystem="2.16.840.1.113883.6.90" displayName="Type 2 diabetes mellitus"/>
+        </observation></entryRelationship>
+      </act></entry>
+    </section></component>
+    <component><section>
+      <code code="10160-0" codeSystem="2.16.840.1.113883.6.1"/>
+      <title>Medications</title>
+      <entry><substanceAdministration classCode="SBADM" moodCode="EVN">
+        <statusCode code="active"/>
+        <doseQuantity value="500" unit="mg"/>
+        <consumable><manufacturedProduct><manufacturedMaterial>
+          <code code="860975" codeSystem="2.16.840.1.113883.6.88" displayName="Metformin 500 MG"/>
+        </manufacturedMaterial></manufacturedProduct></consumable>
+      </substanceAdministration></entry>
+    </section></component>
+    <component><section>
+      <code code="48765-2" codeSystem="2.16.840.1.113883.6.1"/>
+      <title>Allergies</title>
+      <entry><act classCode="ACT" moodCode="EVN">
+        <entryRelationship typeCode="SUBJ"><observation classCode="OBS" moodCode="EVN">
+          <participant typeCode="CSM"><participantRole classCode="MANU"><playingEntity classCode="MMAT">
+            <code code="70618" codeSystem="2.16.840.1.113883.6.88" displayName="Penicillin"/>
+          </playingEntity></participantRole></participant>
+        </observation></entryRelationship>
+      </act></entry>
+    </section></component>
+    <component><section>
+      <code code="30954-2" codeSystem="2.16.840.1.113883.6.1"/>
+      <title>Results</title>
+      <entry><organizer classCode="BATTERY" moodCode="EVN">
+        <statusCode code="completed"/>
+        <component><observation classCode="OBS" moodCode="EVN">
+          <code code="2345-7" codeSystem="2.16.840.1.113883.6.1" displayName="Glucose"/>
+          <statusCode code="completed"/>
+          <effectiveTime value="20260101083000"/>
+          <value xsi:type="PQ" value="182" unit="mg/dL"/>
+          <interpretationCode code="H" codeSystem="2.16.840.1.113883.5.83"/>
+          <referenceRange><observationRange><text>70-99</text></observationRange></referenceRange>
+        </observation></component>
+      </organizer></entry>
+    </section></component>
+    <component><section>
+      <code code="47519-4" codeSystem="2.16.840.1.113883.6.1"/>
+      <title>Procedures</title>
+      <entry><procedure classCode="PROC" moodCode="EVN"/></entry>
+    </section></component>
+  </structuredBody></component>
+</ClinicalDocument>
