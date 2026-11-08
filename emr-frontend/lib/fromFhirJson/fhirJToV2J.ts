@@ -1,184 +1,161 @@
-import { toBundle, type FhirResource, type ImportResult } from "../types";
+import type { ExportResult, FhirBundle, FhirResource } from "../types";
+import { auditFields, first, groupByPatient, isObj, lossNotes, nameParts, str, type Obj } from "./shared";
 
-const SYSTEMS: Record<string, string> = {
-    LN: "http://loinc.org",
-    LOINC: "http://loinc.org",
-    RXNORM: "http://www.nlm.nih.gov/research/umls/rxnorm",
-    SCT: "http://snomed.info/sct",
-    SNM: "http://snomed.info/sct",
-    SNOMED: "http://snomed.info/sct",
-    I10: "http://hl7.org/fhir/sid/icd-10-cm",
-    ICD10: "http://hl7.org/fhir/sid/icd-10-cm",
-    "ICD-10": "http://hl7.org/fhir/sid/icd-10-cm",
-    I9: "http://hl7.org/fhir/sid/icd-9-cm",
-    ICD9: "http://hl7.org/fhir/sid/icd-9-cm",
+const COVERED: Record<string, string[]> = {
+    Patient: ["identifier", "name", "birthDate", "gender"],
+    Condition: ["code", "subject", "onsetDateTime"],
+    AllergyIntolerance: ["code", "patient"],
+    MedicationStatement: ["medicationCodeableConcept", "subject"],
+    Observation: [
+        "code", "subject", "status", "valueQuantity", "valueString", "valueCodeableConcept",
+        "valueBoolean", "valueInteger", "referenceRange", "interpretation", "effectiveDateTime",
+    ],
 };
 
-const SEX: Record<string, string> = { M: "male", F: "female", O: "other", A: "other", U: "unknown", N: "unknown" };
+type Ctx = { multiCoding: number; timeDropped: boolean; idSystems: boolean };
 
-const OBS_STATUS: Record<string, string> = {
-    F: "final", P: "preliminary", C: "corrected", X: "cancelled", D: "entered-in-error", W: "entered-in-error",
+const SEX: Record<string, string> = { male: "M", female: "F", other: "O", unknown: "U" };
+const OBX_STATUS: Record<string, string> = {
+    final: "F", preliminary: "P", corrected: "C", amended: "C", cancelled: "X", "entered-in-error": "W",
 };
+const SYSTEMS: [string, string][] = [
+    ["loinc.org", "LN"], ["snomed.info", "SCT"], ["rxnorm", "RXNORM"], ["icd-10", "I10"], ["icd-9", "I9"],
+];
+const systemName = (url: string) => (url ? (SYSTEMS.find(([k]) => url.includes(k))?.[1] ?? url) : "");
 
-const TEXT_TYPES = ["ST", "TX", "FT", "DT", "TM", "TS", "DTM"];
-const CODED_TYPES = ["CWE", "CE", "CNE", "CF"];
+// HL7 v2 escape sequences for free text
+const esc = (s: string) =>
+    s.replace(/\\/g, "\\E\\").replace(/\|/g, "\\F\\").replace(/\^/g, "\\S\\")
+        .replace(/&/g, "\\T\\").replace(/~/g, "\\R\\").replace(/[\r\n]+/g, " ");
 
-export function hl7v2ToFhir(input: string): ImportResult {
-    // strip BOM and MLLP framing bytes some HL7 feeds include
-    const text = input.replace(/^\uFEFF/, "").replace(/[\x0b\x1c]/g, "");
-    const lines = text.split(/\r\n|\r|\n/).map((l) => l.trim()).filter(Boolean);
+const line = (...f: (string | number)[]) => f.join("|").replace(/\|+$/, "");
 
-    const notes: string[] = [];
-    const out: FhirResource[] = [];
-    const skipped: Record<string, number> = {};
-    const byMrn = new Map<string, string>();
-    let pid: string | null = null;
-    let patients = 0;
-    let obrDate: string | undefined;
-    let sawTime = false;
+// 2026-01-31 -> 20260131
+function v2Date(v: unknown, ctx: Ctx): string {
+    const m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?(T.*)?$/.exec(str(v));
+    if (!m) return "";
+    if (m[4]) ctx.timeDropped = true;
+    return `${m[1]}${m[2] ?? ""}${m[3] ?? ""}`;
+}
 
-    // separators default to the standard ones and are re-read from each MSH
-    let fieldSep = "|", compSep = "^", repSep = "~", subSep = "&";
+// code^display^system
+function cwe(cc: unknown, ctx: Ctx): string {
+    const o: Obj = isObj(cc) ? cc : {};
+    const codings = Array.isArray(o.coding) ? o.coding : [];
+    if (codings.length > 1) ctx.multiCoding++;
+    const c0: Obj = isObj(codings[0]) ? codings[0] : {};
+    const code = str(c0.code);
+    const display = str(c0.display) || str(o.text);
+    if (!code && !display) return "";
+    return [esc(code), esc(display), esc(systemName(str(c0.system)))].join("^").replace(/\^+$/, "");
+}
 
-    const unesc = (v: string) =>
-        v.replace(/\\([FSTRE])\\/g, (_, c: string) =>
-            ({ F: fieldSep, S: compSep, T: subSep, R: repSep, E: "\\" })[c] ?? "");
+function pidIds(p: Obj, ctx: Ctx): string {
+    const ids = Array.isArray(p.identifier) ? p.identifier : [];
+    const out: string[] = [];
+    for (const i of ids) {
+        if (!isObj(i) || !str(i.value)) continue;
+        if (str(i.system)) ctx.idSystems = true;
+        out.push(`${esc(str(i.value))}^^^^MR`);
+    }
+    return out.join("~");
+}
 
-    // component i of repetition rep of a field
-    const part = (field: string | undefined, i = 0, rep = 0) =>
-        unesc((field ?? "").split(repSep)[rep]?.split(compSep)[i]?.trim() ?? "");
+function pidName(p: Obj): string {
+    const { family, given } = nameParts(p);
+    if (!family && given.length === 0) return "";
+    return [esc(family), esc(given[0] ?? ""), esc(given.slice(1).join(" "))].join("^").replace(/\^+$/, "");
+}
 
-    const hl7Date = (v?: string) => {
-        const s = (v ?? "").trim();
-        const m = /^(\d{4})(\d{2})?(\d{2})?(\d+)?/.exec(s);
-        if (!m) return undefined;
-        if (m[4]) sawTime = true;
-        const [, y, mo, d] = m;
-        return mo && d ? `${y}-${mo}-${d}` : mo ? `${y}-${mo}` : y;
+function obxValue(r: Obj, ctx: Ctx): { type: string; value: string; unit: string } {
+    const q = r.valueQuantity;
+    const n = isObj(q) ? q.value : undefined;
+    if (isObj(q) && typeof n === "number") return { type: "NM", value: String(n), unit: str(q.unit) || str(q.code) };
+    if (typeof r.valueInteger === "number") return { type: "NM", value: String(r.valueInteger), unit: "" };
+    if (typeof r.valueString === "string") return { type: "ST", value: esc(str(r.valueString)), unit: "" };
+    if (isObj(r.valueCodeableConcept)) return { type: "CWE", value: cwe(r.valueCodeableConcept, ctx), unit: "" };
+    if (typeof r.valueBoolean === "boolean") return { type: "ST", value: String(r.valueBoolean), unit: "" };
+    return { type: "ST", value: "", unit: "" };
+}
+
+function rangeText(r: Obj): string {
+    const rr = first(r.referenceRange);
+    if (!rr) return "";
+    if (str(rr.text)) return str(rr.text);
+    const num = (x: unknown) => {
+        const v = isObj(x) ? x.value : undefined;
+        return typeof v === "number" ? v : undefined;
     };
+    const lo = num(rr.low);
+    const hi = num(rr.high);
+    if (lo !== undefined && hi !== undefined) return `${lo}-${hi}`;
+    if (lo !== undefined) return `>${lo}`;
+    if (hi !== undefined) return `<${hi}`;
+    return "";
+}
 
-    const codeable = (field?: string) => {
-        const code = part(field, 0);
-        const display = part(field, 1);
-        const system = SYSTEMS[part(field, 2).toUpperCase()];
-        return {
-            ...(code ? { coding: [{ code, ...(display ? { display } : {}), ...(system ? { system } : {}) }] } : {}),
-            text: display || code,
-        };
-    };
+function flagCode(r: Obj): string {
+    const i = first(r.interpretation);
+    const c = first(i?.coding);
+    return str(c?.code);
+}
 
-    for (const line of lines) {
-        if (line.startsWith("MSH")) {
-            fieldSep = line[3] ?? "|";
-            const enc = line.split(fieldSep)[1] ?? "^~\\&";
-            compSep = enc[0] ?? "^";
-            repSep = enc[1] ?? "~";
-            subSep = enc[3] ?? "&";
-            continue;
-        }
+export function fhirJToV2J(bundle: FhirBundle, baseName: string): ExportResult {
+    const ctx: Ctx = { multiCoding: 0, timeDropped: false, idSystems: false };
+    const g = groupByPatient(bundle, COVERED);
+    const exported: FhirResource[] = [];
+    const out: string[] = [];
+    let noCode = 0;
+    const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
 
-        const f = line.split(fieldSep);
-        const seg = f[0];
+    for (const [pid, p] of g.patients) {
+        const list = g.items.get(pid) ?? [];
+        exported.push(p, ...list);
 
-        if (seg === "PID") {
-            const idReps = (f[3] ?? "").split(repSep).filter(Boolean);
-            const chosen = idReps.find((r) => r.split(compSep)[4]?.trim() === "MR") ?? idReps[0] ?? "";
-            const mrn = unesc(chosen.split(compSep)[0]?.trim() ?? "");
-            const label = mrn || `#${patients + 1}`;
-            if (idReps.length > 1) notes.push(`Patient ${label}: kept 1 of ${idReps.length} identifiers`);
+        out.push(`MSH|^~\\&|EMR-UNIFIER|EXPORT|||${stamp}||ADT^A08|${crypto.randomUUID().slice(0, 8)}|P|2.5`);
+        out.push(line("PID", 1, "", pidIds(p, ctx), "", pidName(p), "", v2Date(p.birthDate, ctx), SEX[str(p.gender)] ?? ""));
 
-            // same MRN in several messages -> same Patient
-            if (mrn && byMrn.has(mrn)) { pid = byMrn.get(mrn)!; continue; }
-
-            pid = crypto.randomUUID();
-            if (mrn) byMrn.set(mrn, pid);
-            patients++;
-
-            const p: FhirResource = { resourceType: "Patient", id: pid };
-            if (mrn) p.identifier = [{ value: mrn }];
-
-            const family = part(f[5], 0), given = part(f[5], 1), middle = part(f[5], 2);
-            const full = [given, middle, family].filter(Boolean).join(" ");
-            if (full) p.name = [{ text: full, ...(family ? { family } : {}), given: [given, middle].filter(Boolean) }];
-
-            const dob = hl7Date(f[7]);
-            if (dob) p.birthDate = dob;
-            else if (f[7]) notes.push(`Patient ${label}: unreadable birth date "${f[7]}"`);
-
-            if (f[8]) p.gender = SEX[f[8].toUpperCase()] ?? "unknown";
-            out.push(p);
-            continue;
-        }
-
-        if (seg === "OBR") { obrDate = hl7Date(f[7] || f[6]); continue; }
-
-        if (!pid) { skipped[seg] = (skipped[seg] ?? 0) + 1; continue; }
-        const subject = { reference: `Patient/${pid}` };
-
-        if (seg === "DG1") {
-            const code = codeable(f[3]);
-            if (!code.text) { notes.push("DG1 with no diagnosis code skipped"); continue; }
-            out.push({ resourceType: "Condition", id: crypto.randomUUID(), subject, code });
-        } else if (seg === "AL1") {
-            const code = codeable(f[3]);
-            if (!code.text) { notes.push("AL1 with no allergen skipped"); continue; }
-            out.push({ resourceType: "AllergyIntolerance", id: crypto.randomUUID(), patient: subject, code });
-        } else if (seg === "RXE" || seg === "RXO" || seg === "RXA") {
-            const code = codeable(seg === "RXE" ? f[2] : seg === "RXO" ? f[1] : f[5]);
-            if (!code.text) { notes.push(`${seg} with no medication code skipped`); continue; }
-            out.push({
-                resourceType: "MedicationStatement", id: crypto.randomUUID(), subject,
-                status: seg === "RXA" ? "completed" : "unknown",
-                medicationCodeableConcept: code,
-            });
-        } else if (seg === "OBX") {
-            const code = codeable(f[3]);
-            if (!code.text) { notes.push("OBX with no test code skipped"); continue; }
-
-            const obs: FhirResource = {
-                resourceType: "Observation", id: crypto.randomUUID(), subject, code,
-                status: OBS_STATUS[(f[11] ?? "").toUpperCase()] ?? "unknown",
-            };
-
-            const type = (f[2] ?? "").toUpperCase();
-            const raw = f[5] ?? "";
-            const unit = part(f[6], 0);
-
-            if (type === "NM" || type === "SN") {
-                const numStr = type === "SN" ? part(f[5], 1) : unesc(raw.split(repSep)[0]?.trim() ?? "");
-                const n = Number(numStr);
-                if (numStr !== "" && Number.isFinite(n)) {
-                    obs.valueQuantity = { value: n, ...(unit ? { unit } : {}) };
-                } else if (raw) {
-                    obs.valueString = unesc(raw);
-                    notes.push(`${code.text}: non-numeric value kept as text`);
-                }
-            } else if (CODED_TYPES.includes(type)) {
-                obs.valueCodeableConcept = codeable(f[5]);
-            } else if (raw) {
-                obs.valueString = unesc(raw);
-                if (!TEXT_TYPES.includes(type)) notes.push(`${code.text}: value type "${type || "?"}" stored as text`);
+        let dg = 0;
+        let al = 0;
+        let ob = 0;
+        for (const r of list) {
+            if (r.resourceType === "Condition") {
+                const code = cwe(r.code, ctx);
+                if (!code) { noCode++; continue; }
+                out.push(line("DG1", ++dg, "", code, "", v2Date(r.onsetDateTime, ctx)));
+            } else if (r.resourceType === "AllergyIntolerance") {
+                const code = cwe(r.code, ctx);
+                if (!code) { noCode++; continue; }
+                out.push(line("AL1", ++al, "", code));
+            } else if (r.resourceType === "MedicationStatement") {
+                const code = cwe(r.medicationCodeableConcept, ctx);
+                if (!code) { noCode++; continue; }
+                out.push(line("RXE", "", code));
+            } else if (r.resourceType === "Observation") {
+                const code = cwe(r.code, ctx);
+                if (!code) { noCode++; continue; }
+                const v = obxValue(r, ctx);
+                out.push(line(
+                    "OBX", ++ob, v.type, code, "", v.value, esc(v.unit), esc(rangeText(r)), esc(flagCode(r)),
+                    "", "", OBX_STATUS[str(r.status)] ?? "", "", "", v2Date(r.effectiveDateTime, ctx),
+                ));
             }
-
-            if (f[7]) obs.referenceRange = [{ text: unesc(f[7]) }];
-            const flag = part(f[8], 0);
-            if (flag) {
-                obs.interpretation = [{
-                    coding: [{ system: "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation", code: flag }],
-                }];
-            }
-            const when = hl7Date(f[14]) ?? obrDate;
-            if (when) obs.effectiveDateTime = when;
-
-            out.push(obs);
-        } else {
-            skipped[seg] = (skipped[seg] ?? 0) + 1;
         }
     }
 
-    for (const [s, n] of Object.entries(skipped)) notes.push(`Skipped ${n} ${s} segment(s): not mapped yet`);
-    if (sawTime) notes.push("Time of day was dropped from dates (FHIR requires a time zone, which HL7 v2 times here don't have)");
-    if (patients === 0) notes.push("No PID segment found. Is this an HL7 v2 message?");
+    const notes = lossNotes(auditFields(exported, COVERED, ["name", "referenceRange", "interpretation"]), g, "HL7 v2");
+    if (g.patients.size === 0) notes.push("No Patient resources found: nothing to export");
+    if (noCode) notes.push(`${noCode} item(s) had no code or name and were skipped`);
+    if (ctx.multiCoding) notes.push("Only the first coding of each code was kept");
+    if (ctx.timeDropped) notes.push("Time of day was dropped from dates");
+    if (ctx.idSystems) notes.push("Identifier systems were not carried over; IDs are exported with type MR");
+    if (g.patients.size) {
+        notes.push("Message type ADT^A08 was used; strict HL7 profiles may not allow the OBX and RXE segments included here");
+    }
 
-    return { bundle: toBundle(out), notes, patients };
+    return {
+        blob: new Blob([out.length ? out.join("\r") + "\r" : ""], { type: "text/plain;charset=utf-8" }),
+        filename: `${baseName}.hl7`,
+        notes,
+    };
 }
