@@ -6,6 +6,9 @@ import { fhirToCsv } from "./fromFhirJson/fhirJToCsv";
 import { fhirJToFhirX } from "./fromFhirJson/fhirJToFhirX";
 import { fhirJToV2J } from "./fromFhirJson/fhirJToV2J";
 import { fhirJToCda } from "./fromFhirJson/fhirJToCda";
+import { v2XToFhir } from "./toFhirJson/v2XToFhirJ";
+import { fhirXToFhirJ } from "./toFhirJson/fhirXToFhirJ";
+import { fhirJToV2X } from "./fromFhirJson/fhirJToV2X";
 
 export type FormatId = "csv" | "v2" | "v2-xml" | "fhir-xml" | "fhir-json" | "cda";
 export type Importer = (text: string) => ImportResult;
@@ -30,9 +33,8 @@ const fhirToJson: Exporter = (bundle, baseName) => ({
 export const FORMATS: Format[] = [
     { id: "csv", label: "CSV", exts: ["csv", "tsv", "txt"], canImport: true, exporter: fhirToCsv },
     { id: "v2", label: "HL7 v2 (pipe-delimited)", exts: ["hl7", "txt"], canImport: true, importer: hl7v2ToFhir, exporter: fhirJToV2J },
-    { id: "v2-xml", label: "HL7 v2 XML", exts: ["xml"], canImport: false },
-    { id: "fhir-xml", label: "HL7 FHIR XML", exts: ["xml"], canImport: false, exporter: fhirJToFhirX },
-    { id: "fhir-json", label: "HL7 FHIR JSON", hint: "standard for interoperability", exts: ["json", "fhir"], canImport: true, importer: fhirJToFhirJ, exporter: fhirToJson },
+    { id: "v2-xml", label: "HL7 v2 XML", exts: ["xml"], canImport: true, importer: v2XToFhir, exporter: fhirJToV2X },
+    { id: "fhir-xml", label: "HL7 FHIR XML", exts: ["xml"], canImport: true, importer: fhirXToFhirJ, exporter: fhirJToFhirX }, { id: "fhir-json", label: "HL7 FHIR JSON", hint: "standard for interoperability", exts: ["json", "fhir"], canImport: true, importer: fhirJToFhirJ, exporter: fhirToJson },
     { id: "cda", label: "HL7 CDA", exts: ["xml"], canImport: true, importer: cdaToFhir, exporter: fhirJToCda },
 ];
 

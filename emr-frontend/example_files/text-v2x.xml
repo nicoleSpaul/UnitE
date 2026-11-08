@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ORU_R01 xmlns="urn:hl7-org:v2xml">
+  <MSH>
+    <MSH.1>|</MSH.1>
+    <MSH.2>^~\&amp;</MSH.2>
+    <MSH.3><HD.1>LAB</HD.1></MSH.3>
+    <MSH.4><HD.1>HOSP</HD.1></MSH.4>
+    <MSH.7><TS.1>20260101120000</TS.1></MSH.7>
+    <MSH.9><MSG.1>ORU</MSG.1><MSG.2>R01</MSG.2><MSG.3>ORU_R01</MSG.3></MSH.9>
+    <MSH.10>MSG001</MSH.10>
+    <MSH.11><PT.1>P</PT.1></MSH.11>
+    <MSH.12><VID.1>2.5</VID.1></MSH.12>
+  </MSH>
+  <ORU_R01.PATIENT_RESULT>
+    <ORU_R01.PATIENT>
+      <PID>
+        <PID.1>1</PID.1>
+        <PID.3><CX.1>A1001</CX.1><CX.4><HD.1>HOSP</HD.1></CX.4><CX.5>MR</CX.5></PID.3>
+        <PID.5><XPN.1><FN.1>Test</FN.1></XPN.1><XPN.2>Jane</XPN.2><XPN.3>Q</XPN.3></PID.5>
+        <PID.7><TS.1>19700101</TS.1></PID.7>
+        <PID.8>F</PID.8>
+      </PID>
+      <DG1>
+        <DG1.1>1</DG1.1>
+        <DG1.3><CE.1>E11.9</CE.1><CE.2>Type 2 diabetes mellitus</CE.2><CE.3>I10</CE.3></DG1.3>
+      </DG1>
+      <RXE>
+        <RXE.2><CE.1>860975</CE.1><CE.2>Metformin 500 MG</CE.2><CE.3>RXNORM</CE.3></RXE.2>
+      </RXE>
+    </ORU_R01.PATIENT>
+    <ORU_R01.ORDER_OBSERVATION>
+      <OBR>
+        <OBR.1>1</OBR.1>
+        <OBR.4><CE.1>24323-8</CE.1><CE.2>Comprehensive metabolic panel</CE.2><CE.3>LN</CE.3></OBR.4>
+        <OBR.7><TS.1>20260101083000</TS.1></OBR.7>
+      </OBR>
+      <ORU_R01.OBSERVATION>
+        <OBX>
+          <OBX.1>1</OBX.1>
+          <OBX.2>NM</OBX.2>
+          <OBX.3><CE.1>2345-7</CE.1><CE.2>Glucose</CE.2><CE.3>LN</CE.3></OBX.3>
+          <OBX.5>182</OBX.5>
+          <OBX.6><CE.1>mg/dL</CE.1></OBX.6>
+          <OBX.7>70-99</OBX.7>
+          <OBX.8>H</OBX.8>
+          <OBX.11>F</OBX.11>
+        </OBX>
+      </ORU_R01.OBSERVATION>
+      <ORU_R01.OBSERVATION>
+        <OBX>
+          <OBX.1>2</OBX.1>
+          <OBX.2>NM</OBX.2>
+          <OBX.3><CE.1>8480-6</CE.1><CE.2>Systolic BP</CE.2><CE.3>LN</CE.3></OBX.3>
+          <OBX.5>128</OBX.5>
+          <OBX.6><CE.1>mm[Hg]</CE.1></OBX.6>
+          <OBX.7>90-120</OBX.7>
+          <OBX.8>H</OBX.8>
+          <OBX.11>F</OBX.11>
+        </OBX>
+      </ORU_R01.OBSERVATION>
+    </ORU_R01.ORDER_OBSERVATION>
+  </ORU_R01.PATIENT_RESULT>
+</ORU_R01>

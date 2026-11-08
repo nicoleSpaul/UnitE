@@ -1,184 +1,100 @@
-import { toBundle, type FhirResource, type ImportResult } from "../types";
+import type { ExportResult, FhirBundle } from "../types";
+import { pretty, xmlEsc } from "./shared";
+import { buildV2 } from "./fhirJToV2J";
 
-const SYSTEMS: Record<string, string> = {
-    LN: "http://loinc.org",
-    LOINC: "http://loinc.org",
-    RXNORM: "http://www.nlm.nih.gov/research/umls/rxnorm",
-    SCT: "http://snomed.info/sct",
-    SNM: "http://snomed.info/sct",
-    SNOMED: "http://snomed.info/sct",
-    I10: "http://hl7.org/fhir/sid/icd-10-cm",
-    ICD10: "http://hl7.org/fhir/sid/icd-10-cm",
-    "ICD-10": "http://hl7.org/fhir/sid/icd-10-cm",
-    I9: "http://hl7.org/fhir/sid/icd-9-cm",
-    ICD9: "http://hl7.org/fhir/sid/icd-9-cm",
+const NS = "urn:hl7-org:v2xml";
+const SEGMENT = /^[A-Z][A-Z0-9]{2}$/;
+
+// data types of the fields our HL7 v2 export writes (HL7 v2.5)
+const TYPES: Record<string, string> = {
+    "MSH.3": "HD", "MSH.4": "HD", "MSH.5": "HD", "MSH.6": "HD", "MSH.7": "TS", "MSH.9": "MSG", "MSH.12": "VID",
+    "PID.3": "CX", "PID.5": "XPN", "PID.7": "TS",
+    "DG1.3": "CE", "DG1.5": "TS",
+    "AL1.3": "CE",
+    "RXE.2": "CE",
+    "OBR.4": "CE", "OBR.7": "TS",
+    "OBX.3": "CE", "OBX.6": "CE", "OBX.14": "TS",
 };
 
-const SEX: Record<string, string> = { M: "male", F: "female", O: "other", A: "other", U: "unknown", N: "unknown" };
+type Ctx = { generic: boolean };
 
-const OBS_STATUS: Record<string, string> = {
-    F: "final", P: "preliminary", C: "corrected", X: "cancelled", D: "entered-in-error", W: "entered-in-error",
-};
+// in XML the delimiters are literal characters, so undo the pipe-format escapes
+const unesc = (s: string) =>
+    s.replace(/\\([FSTRE])\\/g, (_m, c: string) =>
+        ({ F: "|", S: "^", T: "&", R: "~", E: "\\" } as Record<string, string>)[c] ?? ""
+    );
 
-const TEXT_TYPES = ["ST", "TX", "FT", "DT", "TM", "TS", "DTM"];
-const CODED_TYPES = ["CWE", "CE", "CNE", "CF"];
+function fieldXml(seg: string, n: number, raw: string, type: string | undefined, ctx: Ctx): string {
+    if (raw === "") return "";
+    const tag = `${seg}.${n}`;
+    return raw
+        .split("~")
+        .filter((rep) => rep !== "")
+        .map((rep) => {
+            const comps = rep.split("^");
+            if (!type && comps.length === 1) return `<${tag}>${xmlEsc(unesc(rep))}</${tag}>`;
+            if (!type) ctx.generic = true;
+            const inner = comps
+                .map((c, i) => {
+                    if (c === "") return "";
+                    const t = `${type ?? tag}.${i + 1}`;
+                    const v = xmlEsc(unesc(c));
+                    // HL7 v2.5: the family name of an XPN is a composite of its own
+                    return type === "XPN" && i === 0 ? `<${t}><FN.1>${v}</FN.1></${t}>` : `<${t}>${v}</${t}>`;
+                })
+                .join("");
+            return `<${tag}>${inner}</${tag}>`;
+        })
+        .join("");
+}
 
-export function hl7v2ToFhir(input: string): ImportResult {
-    // strip BOM and MLLP framing bytes some HL7 feeds include
-    const text = input.replace(/^\uFEFF/, "").replace(/[\x0b\x1c]/g, "");
-    const lines = text.split(/\r\n|\r|\n/).map((l) => l.trim()).filter(Boolean);
+function segmentXml(line: string, structure: string, ctx: Ctx): string {
+    const f = line.split("|");
+    const seg = f[0];
+    if (!SEGMENT.test(seg)) return "";
 
-    const notes: string[] = [];
-    const out: FhirResource[] = [];
-    const skipped: Record<string, number> = {};
-    const byMrn = new Map<string, string>();
-    let pid: string | null = null;
-    let patients = 0;
-    let obrDate: string | undefined;
-    let sawTime = false;
+    let body = "";
+    if (seg === "MSH") body += `<MSH.1>|</MSH.1><MSH.2>${xmlEsc(f[1] ?? "^~\\&")}</MSH.2>`;
 
-    // separators default to the standard ones and are re-read from each MSH
-    let fieldSep = "|", compSep = "^", repSep = "~", subSep = "&";
-
-    const unesc = (v: string) =>
-        v.replace(/\\([FSTRE])\\/g, (_, c: string) =>
-            ({ F: fieldSep, S: compSep, T: subSep, R: repSep, E: "\\" })[c] ?? "");
-
-    // component i of repetition rep of a field
-    const part = (field: string | undefined, i = 0, rep = 0) =>
-        unesc((field ?? "").split(repSep)[rep]?.split(compSep)[i]?.trim() ?? "");
-
-    const hl7Date = (v?: string) => {
-        const s = (v ?? "").trim();
-        const m = /^(\d{4})(\d{2})?(\d{2})?(\d+)?/.exec(s);
-        if (!m) return undefined;
-        if (m[4]) sawTime = true;
-        const [, y, mo, d] = m;
-        return mo && d ? `${y}-${mo}-${d}` : mo ? `${y}-${mo}` : y;
-    };
-
-    const codeable = (field?: string) => {
-        const code = part(field, 0);
-        const display = part(field, 1);
-        const system = SYSTEMS[part(field, 2).toUpperCase()];
-        return {
-            ...(code ? { coding: [{ code, ...(display ? { display } : {}), ...(system ? { system } : {}) }] } : {}),
-            text: display || code,
-        };
-    };
-
-    for (const line of lines) {
-        if (line.startsWith("MSH")) {
-            fieldSep = line[3] ?? "|";
-            const enc = line.split(fieldSep)[1] ?? "^~\\&";
-            compSep = enc[0] ?? "^";
-            repSep = enc[1] ?? "~";
-            subSep = enc[3] ?? "&";
-            continue;
-        }
-
-        const f = line.split(fieldSep);
-        const seg = f[0];
-
-        if (seg === "PID") {
-            const idReps = (f[3] ?? "").split(repSep).filter(Boolean);
-            const chosen = idReps.find((r) => r.split(compSep)[4]?.trim() === "MR") ?? idReps[0] ?? "";
-            const mrn = unesc(chosen.split(compSep)[0]?.trim() ?? "");
-            const label = mrn || `#${patients + 1}`;
-            if (idReps.length > 1) notes.push(`Patient ${label}: kept 1 of ${idReps.length} identifiers`);
-
-            // same MRN in several messages -> same Patient
-            if (mrn && byMrn.has(mrn)) { pid = byMrn.get(mrn)!; continue; }
-
-            pid = crypto.randomUUID();
-            if (mrn) byMrn.set(mrn, pid);
-            patients++;
-
-            const p: FhirResource = { resourceType: "Patient", id: pid };
-            if (mrn) p.identifier = [{ value: mrn }];
-
-            const family = part(f[5], 0), given = part(f[5], 1), middle = part(f[5], 2);
-            const full = [given, middle, family].filter(Boolean).join(" ");
-            if (full) p.name = [{ text: full, ...(family ? { family } : {}), given: [given, middle].filter(Boolean) }];
-
-            const dob = hl7Date(f[7]);
-            if (dob) p.birthDate = dob;
-            else if (f[7]) notes.push(`Patient ${label}: unreadable birth date "${f[7]}"`);
-
-            if (f[8]) p.gender = SEX[f[8].toUpperCase()] ?? "unknown";
-            out.push(p);
-            continue;
-        }
-
-        if (seg === "OBR") { obrDate = hl7Date(f[7] || f[6]); continue; }
-
-        if (!pid) { skipped[seg] = (skipped[seg] ?? 0) + 1; continue; }
-        const subject = { reference: `Patient/${pid}` };
-
-        if (seg === "DG1") {
-            const code = codeable(f[3]);
-            if (!code.text) { notes.push("DG1 with no diagnosis code skipped"); continue; }
-            out.push({ resourceType: "Condition", id: crypto.randomUUID(), subject, code });
-        } else if (seg === "AL1") {
-            const code = codeable(f[3]);
-            if (!code.text) { notes.push("AL1 with no allergen skipped"); continue; }
-            out.push({ resourceType: "AllergyIntolerance", id: crypto.randomUUID(), patient: subject, code });
-        } else if (seg === "RXE" || seg === "RXO" || seg === "RXA") {
-            const code = codeable(seg === "RXE" ? f[2] : seg === "RXO" ? f[1] : f[5]);
-            if (!code.text) { notes.push(`${seg} with no medication code skipped`); continue; }
-            out.push({
-                resourceType: "MedicationStatement", id: crypto.randomUUID(), subject,
-                status: seg === "RXA" ? "completed" : "unknown",
-                medicationCodeableConcept: code,
-            });
-        } else if (seg === "OBX") {
-            const code = codeable(f[3]);
-            if (!code.text) { notes.push("OBX with no test code skipped"); continue; }
-
-            const obs: FhirResource = {
-                resourceType: "Observation", id: crypto.randomUUID(), subject, code,
-                status: OBS_STATUS[(f[11] ?? "").toUpperCase()] ?? "unknown",
-            };
-
-            const type = (f[2] ?? "").toUpperCase();
-            const raw = f[5] ?? "";
-            const unit = part(f[6], 0);
-
-            if (type === "NM" || type === "SN") {
-                const numStr = type === "SN" ? part(f[5], 1) : unesc(raw.split(repSep)[0]?.trim() ?? "");
-                const n = Number(numStr);
-                if (numStr !== "" && Number.isFinite(n)) {
-                    obs.valueQuantity = { value: n, ...(unit ? { unit } : {}) };
-                } else if (raw) {
-                    obs.valueString = unesc(raw);
-                    notes.push(`${code.text}: non-numeric value kept as text`);
-                }
-            } else if (CODED_TYPES.includes(type)) {
-                obs.valueCodeableConcept = codeable(f[5]);
-            } else if (raw) {
-                obs.valueString = unesc(raw);
-                if (!TEXT_TYPES.includes(type)) notes.push(`${code.text}: value type "${type || "?"}" stored as text`);
-            }
-
-            if (f[7]) obs.referenceRange = [{ text: unesc(f[7]) }];
-            const flag = part(f[8], 0);
-            if (flag) {
-                obs.interpretation = [{
-                    coding: [{ system: "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation", code: flag }],
-                }];
-            }
-            const when = hl7Date(f[14]) ?? obrDate;
-            if (when) obs.effectiveDateTime = when;
-
-            out.push(obs);
-        } else {
-            skipped[seg] = (skipped[seg] ?? 0) + 1;
-        }
+    for (let i = seg === "MSH" ? 2 : 1; i < f.length; i++) {
+        const n = seg === "MSH" ? i + 1 : i; // MSH.1 is the separator, so its fields are shifted by one
+        let raw = f[i] ?? "";
+        if (seg === "MSH" && n === 9 && raw && raw.split("^").length < 3) raw = `${raw}^${structure}`;
+        let type = TYPES[`${seg}.${n}`];
+        if (seg === "OBX" && n === 5 && ["CE", "CWE", "CNE"].includes(f[2] ?? "")) type = f[2];
+        body += fieldXml(seg, n, raw, type, ctx);
     }
+    return `<${seg}>${body}</${seg}>`;
+}
 
-    for (const [s, n] of Object.entries(skipped)) notes.push(`Skipped ${n} ${s} segment(s): not mapped yet`);
-    if (sawTime) notes.push("Time of day was dropped from dates (FHIR requires a time zone, which HL7 v2 times here don't have)");
-    if (patients === 0) notes.push("No PID segment found. Is this an HL7 v2 message?");
+export function fhirJToV2X(bundle: FhirBundle, baseName: string): ExportResult {
+    const { text, notes } = buildV2(bundle);
+    const filename = `${baseName}.v2.xml`;
+    const lines = text.split(/\r\n|\r|\n/).filter(Boolean);
+    if (lines.length === 0) return { blob: new Blob([""], { type: "application/xml" }), filename, notes };
 
-    return { bundle: toBundle(out), notes, patients };
+    // XML holds one message per file
+    const starts = lines.flatMap((l, i) => (l.startsWith("MSH|") ? [i] : []));
+    const first = lines.slice(starts[0] ?? 0, starts[1] ?? lines.length);
+
+    const mt = (first[0].split("|")[8] ?? "").split("^");
+    const guess = mt[0] && mt[1] ? `${mt[0]}_${mt[1]}` : "";
+    const structure = /^[A-Z0-9_]+$/.test(guess) ? guess : "ADT_A08";
+
+    const ctx: Ctx = { generic: false };
+    const segs = first.map((l) => segmentXml(l, structure, ctx)).join("");
+    const xml = pretty(`<${structure} xmlns="${NS}">${segs}</${structure}>`);
+
+    const out = [...notes];
+    if (starts.length > 1) {
+        out.push(`HL7 v2 XML holds one message per file: exported the first of ${starts.length} patients`);
+    }
+    out.push("Segments are written without HL7's message-group wrappers, so strict v2 XML validators may reject the file. It re-imports into this tool");
+    if (ctx.generic) out.push("Components of fields outside the common set are named by position (for example OBX.5.1)");
+
+    return {
+        blob: new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n${xml}\n`], { type: "application/xml" }),
+        filename,
+        notes: out,
+    };
 }

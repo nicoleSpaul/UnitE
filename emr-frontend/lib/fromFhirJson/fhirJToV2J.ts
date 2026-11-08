@@ -100,7 +100,8 @@ function flagCode(r: Obj): string {
     return str(c?.code);
 }
 
-export function fhirJToV2J(bundle: FhirBundle, baseName: string): ExportResult {
+// builds the pipe-delimited message text (shared with the HL7 v2 XML exporter)
+export function buildV2(bundle: FhirBundle): { text: string; notes: string[] } {
     const ctx: Ctx = { multiCoding: 0, timeDropped: false, idSystems: false };
     const g = groupByPatient(bundle, COVERED);
     const exported: FhirResource[] = [];
@@ -153,8 +154,13 @@ export function fhirJToV2J(bundle: FhirBundle, baseName: string): ExportResult {
         notes.push("Message type ADT^A08 was used; strict HL7 profiles may not allow the OBX and RXE segments included here");
     }
 
+    return { text: out.length ? out.join("\r") + "\r" : "", notes };
+}
+
+export function fhirJToV2J(bundle: FhirBundle, baseName: string): ExportResult {
+    const { text, notes } = buildV2(bundle);
     return {
-        blob: new Blob([out.length ? out.join("\r") + "\r" : ""], { type: "text/plain;charset=utf-8" }),
+        blob: new Blob([text], { type: "text/plain;charset=utf-8" }),
         filename: `${baseName}.hl7`,
         notes,
     };

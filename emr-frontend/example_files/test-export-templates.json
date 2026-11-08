@@ -1,0 +1,58 @@
+{
+    "format": "emr-unifier-templates",
+    "version": 1,
+    "exportTemplates": [
+        {
+            "name": "Lab summary (pipe)",
+            "delimiter": "|",
+            "columns": [
+                {
+                    "header": "MRN",
+                    "source": "Patient.identifier.value"
+                },
+                {
+                    "header": "Patient",
+                    "source": "Patient.name.text"
+                },
+                {
+                    "header": "Test",
+                    "source": "Observation.code.text"
+                },
+                {
+                    "header": "Result",
+                    "source": "Observation.value"
+                },
+                {
+                    "header": "Unit",
+                    "source": "Observation.unit"
+                },
+                {
+                    "header": "Flag",
+                    "source": "Observation.flag"
+                }
+            ]
+        },
+        {
+            "name": "Patient list (tab)",
+            "delimiter": "\t",
+            "columns": [
+                {
+                    "header": "ID",
+                    "source": "Patient.identifier.value"
+                },
+                {
+                    "header": "Name",
+                    "source": "Patient.name.text"
+                },
+                {
+                    "header": "DOB",
+                    "source": "Patient.birthDate"
+                },
+                {
+                    "header": "Sex",
+                    "source": "Patient.gender"
+                }
+            ]
+        }
+    ]
+}
