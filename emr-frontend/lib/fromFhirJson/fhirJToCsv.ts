@@ -3,9 +3,11 @@ import { EXT_URL, KINDS, TARGET_LIST, type ResourceKind } from "../targets";
 import type { ExportResult, FhirBundle, FhirResource } from "../types";
 
 type Row = Record<string, string>;
+export type CsvTable = { cols: string[]; rows: Row[]; notes: string[] };
 
 const BASE_COLS = TARGET_LIST.filter((t) => !t.perColumn).map((t) => t.id);
 const STRUCTURAL = ["resourceType", "id", "meta", "text", "subject", "patient"];
+const UNSAFE = new Set(["__proto__", "constructor", "prototype"]);
 
 // top-level keys the CSV can represent, per resource type
 const COVERED = new Map<string, Set<string>>(
@@ -23,7 +25,8 @@ const extName = (url: string) => {
     try { return decodeURIComponent(s); } catch { return s; }
 };
 
-export function fhirToCsv(bundle: FhirBundle, baseName: string): ExportResult {
+// Flattens a Bundle into rows (one per clinical item, patient columns repeated) plus a loss report.
+export function buildCsvTable(bundle: FhirBundle): CsvTable {
     const resources = (bundle.entry ?? [])
         .map((e) => e.resource)
         .filter((r): r is FhirResource => !!r);
@@ -41,8 +44,13 @@ export function fhirToCsv(bundle: FhirBundle, baseName: string): ExportResult {
             if (k === "extension") {
                 const list = Array.isArray(v) ? (v as { url?: string }[]) : [];
                 for (const e of list) {
-                    if (typeof e.url === "string" && e.url.startsWith(EXT_URL)) extCols.add(extName(e.url));
-                    else bump(dropped, `${r.resourceType}.extension`);
+                    if (typeof e.url === "string" && e.url.startsWith(EXT_URL)) {
+                        const name = extName(e.url);
+                        if (UNSAFE.has(name)) bump(dropped, `${r.resourceType}.extension`);
+                        else extCols.add(name);
+                    } else {
+                        bump(dropped, `${r.resourceType}.extension`);
+                    }
                 }
                 continue;
             }
@@ -67,6 +75,7 @@ export function fhirToCsv(bundle: FhirBundle, baseName: string): ExportResult {
         for (const e of ext) {
             if (typeof e.url === "string" && e.url.startsWith(EXT_URL) && e.valueString) {
                 const name = extName(e.url);
+                if (UNSAFE.has(name)) continue;
                 row[name] = row[name] ? `${row[name]} | ${e.valueString}` : e.valueString;
             }
         }
@@ -97,6 +106,11 @@ export function fhirToCsv(bundle: FhirBundle, baseName: string): ExportResult {
     if (extra.size) notes.push("Only the first entry was kept for: " + [...extra].map(([k, c]) => `${k} (${c} more)`).join(", "));
     if (orphans) notes.push(`${orphans} item(s) had no matching Patient, exported with blank patient columns`);
 
+    return { cols, rows, notes };
+}
+
+export function fhirToCsv(bundle: FhirBundle, baseName: string): ExportResult {
+    const { cols, rows, notes } = buildCsvTable(bundle);
     const csv = Papa.unparse(rows, { columns: cols });
     return {
         blob: new Blob([csv], { type: "text/csv;charset=utf-8" }),
