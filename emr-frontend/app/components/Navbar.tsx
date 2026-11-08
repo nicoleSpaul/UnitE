@@ -44,9 +44,9 @@ const items: NavItem[] = [
             </svg>
         ),
         children: [
-            { label: "Excel", href: "/pages/input/excel-conversion"},
-            { label: "Audio", href: "/page/input/audio-conversion"},
-            { label: "Image", href: "/page/input/image-conversion"},
+            { label: "File", href: "/pages/input/file-conversion"},
+            { label: "Speach", href: "/pages/input/speech-conversion"},
+            { label: "Image", href: "/pages/input/image-conversion"},
         ],
     },
     {
