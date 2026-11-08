@@ -45,7 +45,7 @@ const items: NavItem[] = [
         ),
         children: [
             { label: "File", href: "/pages/input/file-conversion"},
-            { label: "Speach", href: "/pages/input/speech-conversion"},
+            { label: "Speech", href: "/pages/input/speech-conversion"},
             { label: "Image", href: "/pages/input/image-conversion"},
         ],
     },
