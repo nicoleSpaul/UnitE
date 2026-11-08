@@ -280,6 +280,11 @@ export default function ConversionPage() {
         setOutFormat("fhir-json");
     }
 
+    // CSV only: runs the column mapping. Other formats convert the moment the file loads.
+    function convertCsv() {
+        setResult(csvToFhir(rows, mapping));
+    }
+
     // the converted file, rebuilt whenever the result, the target format or the custom template changes
     const output = useMemo<Output>(() => {
         if (!result) return null;
@@ -361,8 +366,7 @@ export default function ConversionPage() {
                     </select>
 
                     <label
-                        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed p-6 text-center ${dragging ? "border-black bg-gray-100 text-black" : ""
-                            }`}
+                        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded border-2 border-dashed p-6 text-center ${dragging ? "border-black bg-gray-100 text-black" : ""}`}
                         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
                         onDragLeave={() => setDragging(false)}
                         onDrop={(e) => {
@@ -434,13 +438,23 @@ export default function ConversionPage() {
                     </select>
 
                     <div className="rounded border-2 border-dashed p-6 text-center text-sm">
-                        <button
-                            onClick={download}
-                            disabled={!canDownload}
-                            className="rounded border px-3 py-1 disabled:opacity-50"
-                        >
-                            Download
-                        </button>
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                            {fromCsv && (
+                                <button
+                                    onClick={convertCsv}
+                                    className="rounded border-2 px-3 py-1 font-semibold"
+                                >
+                                    Convert
+                                </button>
+                            )}
+                            <button
+                                onClick={download}
+                                disabled={!canDownload}
+                                className="rounded border px-3 py-1 disabled:opacity-50"
+                            >
+                                Download
+                            </button>
+                        </div>
                         <p className="mt-2 text-xs text-gray-500">
                             {output && "blob" in output ? output.filename : "Your converted file will appear here"}
                         </p>
@@ -553,8 +567,8 @@ export default function ConversionPage() {
                     </div>
 
                     <button
-                        onClick={() => setResult(csvToFhir(rows, mapping))}
-                        className="rounded bg-white px-4 py-2 text-white"
+                        onClick={convertCsv}
+                        className="rounded border-2 px-4 py-2 font-semibold"
                     >
                         Convert
                     </button>
