@@ -64,8 +64,7 @@ const items: NavItem[] = [
             </svg>
         ),
         children: [
-            { label: "Text", href: "/pages/output/text-output"},
-            { label: "Audio", href: "/pages/output/audio-output"},
+            { label: "Audio/Text", href: "/pages/output/audio-output"},
         ]
     },
 ]

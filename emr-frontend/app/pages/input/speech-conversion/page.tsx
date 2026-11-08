@@ -48,10 +48,34 @@ export default function SpeechConversion() {
   const [status, setStatus] = useState<'idle' | 'requesting' | 'recording' | 'transcribing'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState('');
+  const [converting, setConverting] = useState(false);
+  const [fhir, setFhir] = useState('');
+  const [conversionError, setConversionError] = useState<string | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const wanted = useRef(false);
   const busy = useRef(false);
+
+  const convertToFhir = async () => {
+    if (!text.trim() || converting || status !== 'idle') return;
+    setConverting(true);
+    setFhir('');
+    setConversionError(null);
+    try {
+      const response = await fetch('/api/gemini/to_fhir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not convert text to FHIR.');
+      setFhir(JSON.stringify(data, null, 2));
+    } catch (err) {
+      setConversionError(err instanceof Error ? err.message : 'Could not convert text to FHIR.');
+    } finally {
+      setConverting(false);
+    }
+  };
 
   // Post the recording to Whisper through the local whisper call
   const transcribe = async (audio: Blob) => {
@@ -80,6 +104,9 @@ export default function SpeechConversion() {
     wanted.current = true;
     busy.current = true;
     setError(null);
+    setText('');
+    setFhir('');
+    setConversionError(null);
     setStatus('requesting');
     try {
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
@@ -134,7 +161,7 @@ export default function SpeechConversion() {
   return (
     <main className="ml-56 min-w-0 flex-1 space-y-4 p-6">
       <h1 className="text-2xl font-semibold">Speech Conversion</h1>
-      <button type="button" disabled={status === 'transcribing'}
+      <button type="button" disabled={status === 'transcribing' || converting}
         className="rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:cursor-wait disabled:opacity-50"
         aria-pressed={active}
         onClick={() => {
@@ -149,6 +176,40 @@ export default function SpeechConversion() {
       <p>Click the button to start, then click again to stop.</p>
       {error && <p role="alert">{error}</p>}
       <h3>Returned Text: {text}</h3>
+      <button
+        type="button"
+        onClick={convertToFhir}
+        disabled={!text.trim() || status !== 'idle' || converting}
+        className="rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {converting ? 'Converting…' : 'Convert to FHIR JSON'}
+      </button>
+      {converting && <p role="status">Converting text to FHIR JSON…</p>}
+      {conversionError && <p role="alert" className="text-red-600">{conversionError}</p>}
+      {fhir && (
+        <section className="space-y-2">
+          <h2 className="text-lg font-semibold">FHIR JSON</h2>
+          <pre tabIndex={0} aria-label="FHIR JSON output" className="max-h-96 overflow-auto rounded-lg border border-slate-300 bg-slate-50 p-4 text-xs text-slate-800">
+            {fhir}
+          </pre>
+          <button
+            type="button"
+            onClick={() => {
+              const url = URL.createObjectURL(new Blob([fhir], { type: 'application/fhir+json' }));
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = 'transcript.fhir.json';
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }}
+            className="rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+          >
+            Download JSON
+          </button>
+        </section>
+      )}
     </main>
   );
 }
