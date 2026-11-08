@@ -1,0 +1,92 @@
+{
+    "resourceType": "Bundle",
+    "type": "collection",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "095aadcb-8403-4484-a24b-26d20e63f890",
+                "name": [
+                    {
+                        "text": "Jane Test"
+                    }
+                ],
+                "birthDate": "1970-01-01",
+                "gender": "female",
+                "identifier": [
+                    {
+                        "value": "A1001"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "6ff00ae1-8f60-478d-8a59-a50e0cd45911",
+                "subject": {
+                    "reference": "Patient/095aadcb-8403-4484-a24b-26d20e63f890"
+                },
+                "code": {
+                    "text": "E11.9"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationStatement",
+                "id": "9b4d926d-ec29-4243-b276-4f4b29866f86",
+                "status": "unknown",
+                "subject": {
+                    "reference": "Patient/095aadcb-8403-4484-a24b-26d20e63f890"
+                },
+                "medicationCodeableConcept": {
+                    "text": "Metformin 500 mg"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "48904c21-c474-4c86-874f-9b74e7f6e8dd",
+                "name": [
+                    {
+                        "text": "John Sample"
+                    }
+                ],
+                "birthDate": "1985-06-15",
+                "gender": "male",
+                "identifier": [
+                    {
+                        "value": "A1002"
+                    }
+                ]
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Condition",
+                "id": "cb59eb3d-a2e8-4305-b314-d7a8deb5589f",
+                "subject": {
+                    "reference": "Patient/48904c21-c474-4c86-874f-9b74e7f6e8dd"
+                },
+                "code": {
+                    "text": "I10"
+                }
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationStatement",
+                "id": "a3cb01bb-0a9f-4e57-8bf8-9d5aafa5d1f0",
+                "status": "unknown",
+                "subject": {
+                    "reference": "Patient/48904c21-c474-4c86-874f-9b74e7f6e8dd"
+                },
+                "medicationCodeableConcept": {
+                    "text": "Lisinopril 10 mg"
+                }
+            }
+        }
+    ]
+}
