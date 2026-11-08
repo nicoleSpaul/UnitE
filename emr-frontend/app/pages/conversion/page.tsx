@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Papa from "papaparse";
 import { TARGETS } from "@/lib/targets";
-import { csvToFhir, type Mapping } from "@/lib/csvToFhir";
+import { csvToFhir, type Mapping } from "@/lib/toFhirJson/csvToFhirJ";
 
 type Row = Record<string, string>;
 
