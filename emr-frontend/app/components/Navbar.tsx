@@ -49,9 +49,11 @@ const items: NavItem[] = [
             </svg>
         ),
         children: [
-            { label: "File", href: "/pages/input/file-conversion"},
+            { label: "File to FHIR", href: "/pages/conversion"},
+            { label: "FHIR to File", href: ""},
+            { label: "Image to FHIR", href: "/pages/input/image-conversion"},
+            { label: "FHIR to Image", href: "/pages/input/image-conversion-to"},
             { label: "Speech", href: "/pages/input/speech-conversion"},
-            { label: "Image", href: "/pages/input/image-conversion"},
         ],
     },
     {
